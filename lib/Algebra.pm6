@@ -1,3 +1,4 @@
+# inspired from L<http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm>
 unit grammar Algebra;
 
 rule TOP { ^^<e>$$ }
