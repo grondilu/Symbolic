@@ -66,48 +66,50 @@ our sub parse(Str $expression) {
 
 our sub parse-infix(Str $expression) is export {
     use Algebra;
-    Algebra.parse: $expression,
-    actions => class {
-        method TOP($/) { make $<e>.made }
-        method e($/) {
-            my @signs = $<sep>».Str;
-            make reduce {
+    Algebra.parse(
+        $expression,
+        actions => class {
+            method TOP($/) { make $<e>.made }
+            method e($/) {
+                my @signs = $<sep>».Str;
+                make reduce {
+                    Expression.new:
+                    head => Symbol.new(:name(@signs.shift)),
+                    part => (my @ = $^a, $^b)
+                },
+                $<t>».made;
+            }
+            method t($/) {
+                my @signs = $<sep>».Str;
+                make reduce {
+                    Expression.new:
+                    head => Symbol.new(:name(@signs.shift)),
+                    part => (my @ = $^a, $^b)
+                },
+                $<f>».made;
+            }
+            method f($/) {
+                my $p = $<p>.made;
+                make !$<f> ?? $p !!
                 Expression.new:
-                head => Symbol.new(:name(@signs.shift)),
-                part => (my @ = $^a, $^b)
-            },
-            $<t>».made;
+                head => Symbol.new(:name<^>),
+                part => (my @ = $p, $<f>.made)
+            }
+            method p($/) {
+                make
+                $<e> ?? $<e>.made !!
+                $<v> ?? $<v>.made !!
+                $<t> ?? Expression.new(
+                    head => Symbol.new(:name<->),
+                    part => (my @ = $<t>.made)
+                ) !! die "unexpected case"
+            }
+            method v($/) {
+                make $<ident> ?? Symbol.new(:name(~$/)) !!
+                $<number> ?? Integer.new(:value(+$/)) !!
+                die "unexpected case"
+            }
         }
-        method t($/) {
-            my @signs = $<sep>».Str;
-            make reduce {
-                Expression.new:
-                head => Symbol.new(:name(@signs.shift)),
-                part => (my @ = $^a, $^b)
-            },
-            $<f>».made;
-        }
-        method f($/) {
-            my $p = $<p>.made;
-            make !$<f> ?? $p !!
-            Expression.new:
-            head => Symbol.new(:name<^>),
-            part => (my @ = $p, $<f>.made)
-        }
-        method p($/) {
-            make
-            $<e> ?? $<e>.made !!
-            $<v> ?? $<v>.made !!
-            $<t> ?? Expression.new(
-                head => Symbol.new(:name<->),
-                part => (my @ = $<t>.made)
-            ) !! die "unexpected case"
-        }
-        method v($/) {
-            make $<ident> ?? Symbol.new(:name(~$/)) !!
-            $<number> ?? Integer.new(:value(+$/)) !!
-            die "unexpected case"
-        }
-    }
+    ).made
 }
 
