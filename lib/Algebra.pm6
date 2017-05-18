@@ -7,6 +7,5 @@ rule t { <f>+ % $<sep> = <[*/]> }
 rule f { <p>[\^<f>]? }
 rule p { <v> | \(<e>\) | <[-+]><t> }
 rule v { <ident> | <number> }
-rule number { <.integer><.fraction>? }
-rule fraction { \.<.digit>+ }
-rule integer { <[+-]>? 0 | <[1..9]><.digit>* }
+rule number { <.integer> }
+rule integer { 0 | <[1..9]><.digit>* }
