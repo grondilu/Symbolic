@@ -1,6 +1,6 @@
 unit module Symbolic;
 
-my subset Identifier of Str where /^^<+ident+[-+*/^]>$$/;
+my subset Identifier of Str where /^^<ident>$$/;
 my %symbol-table;
 
 our role Expression is export {
@@ -66,12 +66,19 @@ our sub parse(Str $expression) {
 
 our sub parse-infix(Str $expression) is export {
     use Algebra;
+    constant %operators = {
+        '+' => 'Plus',
+        '-' => 'Minus',
+        '^' => 'Power',
+        '*' => 'Multiply',
+        '/' => 'Divide',
+    }
     Algebra.parse(
         $expression,
         actions => class {
             method TOP($/) { make $<e>.made }
             method e($/) {
-                my @signs = $<sep>».Str;
+                my @signs = %operators{@$<sep>};
                 make reduce {
                     Expression.new:
                     head => Symbol.new(:name(@signs.shift)),
@@ -80,7 +87,7 @@ our sub parse-infix(Str $expression) is export {
                 $<t>».made;
             }
             method t($/) {
-                my @signs = $<sep>».Str;
+                my @signs = %operators{@$<sep>};
                 make reduce {
                     Expression.new:
                     head => Symbol.new(:name(@signs.shift)),
@@ -92,7 +99,7 @@ our sub parse-infix(Str $expression) is export {
                 my $p = $<p>.made;
                 make !$<f> ?? $p !!
                 Expression.new:
-                head => Symbol.new(:name<^>),
+                head => Symbol.new(:name<Power>),
                 part => (my @ = $p, $<f>.made)
             }
             method p($/) {
