@@ -4,23 +4,22 @@ my subset Identifier of Str where /^^<ident>$$/;
 my %symbol-table;
 
 our role Expression is export {
-    has ($.head, $.part);
+    method head {...}
+    method part(--> Array) {...}
     method length { self.part.elems }
-    method fullForm { "{$!head.fullForm}[{$!part».fullForm.join(',')}]" }
-    method CALL-ME { $!head()(|$!part».()) }
-    method gist { self.fullForm }
+    #method TeXForm {...}
+    #method MathMLForm {...}
+    method CALL-ME { self.head()(|self.part».()) }
 }
 
 our class Symbol does Expression is export {
-    has Identifier $.name;
-    method fullForm { self.name.gist }
+    has Identifier $.name handles <Str>;
     method head { self }
     method part {}
     method CALL-ME { %symbol-table{self.name} // self }
 }
 
 our role RawObject does Expression is export {
-    method fullForm { self.value.gist }
     method head { self }
     method part {}
     #| From Wolfram's Mathematica documentation,
@@ -30,93 +29,70 @@ our role RawObject does Expression is export {
     method CALL-ME { self }
 }
 
-our class Integer does RawObject is export { has Int $.value }
-our class String  does RawObject is export { has Str $.value }
+our class Number does RawObject is export { has Real $.value handles <Str> }
+our class String does RawObject is export { has Str $.value handles <Str> }
 
 our sub clear(Identifier $symbol) { %symbol-table{$symbol} :delete }
 
-our sub parse(Str $expression) {
-    grammar {
-        rule TOP { ^ <root=.expression> $ }
-        rule expression { <head=.symbol> <call>* }
-        rule call { \[ <part=.expression>+ % \, \] }
-        token symbol { <ident> | <number> }
-        token number { <.integer><.fraction>? }
-        token fraction { \.<.digit>+ }
-        token integer { <[+-]>? 0 | <[1..9]><.digit>+ }
-    }.parse:
-    $expression,
-    actions => class {
-        method TOP($/) {  make $<root>.made }
-        method expression($/) {
-            make
-            reduce {
-                Expression.new:
-                :head($^a),
-                :part(my @ = map *.made, $^b<part>)
-            }, $<head>.made, |$<call>;
-        }
-        method symbol($/) {
-            make $<number> ??
-            Integer.new(:value(+$/)) !!
-            Symbol.new(:name(~$/))
-        }
-    }
+our subset NakedPair of Pair is export where { .value === True }
+
+multi prefix:<+>(NakedPair $x --> Symbol) is export {
+    Symbol.new: name => $x.key;
 }
 
-our sub parse-infix(Str $expression) is export {
-    use Algebra;
-    constant %operators = {
-        '+' => 'Plus',
-        '-' => 'Minus',
-        '^' => 'Power',
-        '*' => 'Multiply',
-        '/' => 'Divide',
-    }
-    Algebra.parse(
-        $expression,
-        actions => class {
-            method TOP($/) { make $<e>.made }
-            method e($/) {
-                my @signs = %operators{@$<sep>};
-                make reduce {
-                    Expression.new:
-                    head => Symbol.new(:name(@signs.shift)),
-                    part => (my @ = $^a, $^b)
-                },
-                $<t>».made;
-            }
-            method t($/) {
-                my @signs = %operators{@$<sep>};
-                make reduce {
-                    Expression.new:
-                    head => Symbol.new(:name(@signs.shift)),
-                    part => (my @ = $^a, $^b)
-                },
-                $<f>».made;
-            }
-            method f($/) {
-                my $p = $<p>.made;
-                make !$<f> ?? $p !!
-                Expression.new:
-                head => Symbol.new(:name<Power>),
-                part => (my @ = $p, $<f>.made)
-            }
-            method p($/) {
-                make
-                $<e> ?? $<e>.made !!
-                $<v> ?? $<v>.made !!
-                $<t> ?? Expression.new(
-                    head => Symbol.new(:name<->),
-                    part => (my @ = $<t>.made)
-                ) !! die "unexpected case"
-            }
-            method v($/) {
-                make $<ident> ?? Symbol.new(:name(~$/)) !!
-                $<number> ?? Integer.new(:value(+$/)) !!
-                die "unexpected case"
-            }
-        }
-    ).made
+class BinaryExpression does Expression {
+    has Str $.name;
+    has ($.left, $.right);
+    method head { Symbol.new: :$!name }
+    method part { [ $!left, $!right ] }
+    method Str { "{self.head}[{self.part.join(',')}]" }
 }
+
+#multi infix:<+>(Real $value, NakedPair $b --> Expression) is export {
+#    BinaryExpression.new: :name<Plus>, :left(Number.new: :$value), :right(+$b)
+#}
+#multi infix:<+>(NakedPair $a, Real $value --> Expression) is export {
+#    BinaryExpression.new: :name<Plus>, :left(+$a), :right(Number.new: :$value)
+#}
+multi infix:<+>(NakedPair $a, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Plus>, :left(+$a), :right(+$b)
+}
+multi infix:<+>(NakedPair $a, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Plus>, :left(+$a), :$right
+}
+multi infix:<+>(Expression $left, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Plus>, :$left, :right(+$b)
+}
+multi infix:<+>(Expression $left, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Plus>, :$left, :$right
+}
+
+multi infix:<*>(NakedPair $a, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Times>, :left(+$a), :right(+$b)
+}
+multi infix:<*>(NakedPair $a, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Times>, :left(+$a), :$right
+}
+multi infix:<*>(Expression $left, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Times>, :$left, :right(+$b)
+}
+multi infix:<*>(Expression $left, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Times>, :$left, :$right
+}
+
+
+multi infix:<**>(NakedPair $a, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Power>, :left(+$a), :right(+$b)
+}
+multi infix:<**>(NakedPair $a, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Power>, :left(+$a), :$right
+}
+multi infix:<**>(Expression $left, NakedPair $b --> Expression) is export {
+    BinaryExpression.new: :name<Power>, :$left, :right(+$b)
+}
+multi infix:<**>(Expression $left, Expression $right --> Expression) is export {
+    BinaryExpression.new: :name<Power>, :$left, :$right
+}
+
+
 

@@ -1,13 +1,13 @@
-use Algebra;
+use Symbolic;
 
 use Test;
-
 plan *;
 
-ok Algebra.parse($_), $_ for
-<1 12 2 pi -x +x 1+2 1+2+3 2*2 3*(2+1)
-(1+1)*2
-(1+1)*2*3
->;
+# Stringification
+is (+:a).Str, 'a';
+is (:a + :b).Str, 'Plus[a,b]';
+is (:a * :b).Str, 'Times[a,b]';
+is (:a*(:b+:c)).Str, 'Times[a,Plus[b,c]]';
+is (:a**:x).Str,   'Power[a,x]';
 
 # vim: ft=perl6
