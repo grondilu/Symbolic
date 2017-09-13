@@ -1,21 +1,65 @@
 Symbolic calculus in Perl 6
 ===========================
 
-This module is inspired from [Wolfram Language](http://www.wolfram.com/language/).
-
 # Synopsis
 
     use Symbolic;
 
-    # To enter raw symbols, use naked pairs
-    .say for
-        :x,
-        :a + :b,
-        :a**2,
-        (:a+:b)*(:a-:b),
+    class Operation is Expression {
+        method gist {
+            self.args.map(-> $arg {
+                self.OpWithLowerPrecedence
+                .map(-> $C { $arg ~~ $C })
+                .any ?? "({$arg.gist})" !! $arg.gist
+            })
+            .join(self.symbol)
+        }
+        multi method multiply($) { Operation }
+        multi method add($) { Operation }
+    }
+    class Multiplication is Operation {...}
+    class Addition is Operation {...}
+    class Variable is Identifier {
+        multi method multiply($) { Operation }
+        multi method add($) { Operation }
+    }
 
-    # To force conversion into a Symbol object, use &prefix:<+>
-    say +:x;
+    class Addition {
+        method OpWithLowerPrecedence { [] }
+        method symbol { '+' }
+        method evaluate() {
+            self.args[0].add(|self.args[1..*]) || callsame
+        }
+        multi method multiply(Variable $m) {
+            Addition.new(
+                :args(
+                    self.args.map(
+                        { Multiplication.new(:args($_, $m)) }
+                    )
+                )
+            )
+        }
+    }
+    class Multiplication {
+        method OpWithLowerPrecedence { [Addition, ] }
+        method symbol { '*' }
+        method evaluate() {
+            self.args[0].multiply(self.args[1]) || callsame
+        }
+    }
 
-**THIS IS A WORK IN PROGRESS, DON'T EXPECT MUCH**
+    given Multiplication.new(
+        :args(
+            Addition.new(
+                :args(
+                    Variable.new(:name("a")),
+                    Variable.new(:name("b"))
+                )
+            ),
+            Variable.new(:name("c"))
+        )
+    ) {
+        .say;              # (a+b)*c
+        say .evaluate();   # a*c+b*c
+    }
 
