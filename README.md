@@ -1,6 +1,18 @@
 Symbolic calculus in Perl 6
 ===========================
 
+This modules exports two classes, `Expression`
+and `Identifier`.  The latter inherits
+from the latter.  It evals by looking up its
+own name in a symbolic table.
+
+`Expression` is directly inspired from
+the underlying mechanism behind the core mechanism of the
+[Wolfram language](https://en.wikipedia.org/wiki/Wolfram_Language).
+
+See notably the
+[standard evaluation procedure](http://reference.wolfram.com/language/tutorial/TheStandardEvaluationProcedure.html).
+
 # Synopsis
 
     use Symbolic;
