@@ -1,14 +1,15 @@
 {
     "perl":         "6",
     "name":         "Symbolic",
-    "version":      "0.0.2",
+    "version":      "0.1.0",
     "auth":         "github:grondilu",
     "description":  "Symbolic Calculous for Perl 6",
     "licence":      "MIT",
-    "depends":      [ "Symbol" ],
+    "depends":      [ ],
     "provides":     {
-        "Symbolic":  "lib/Symbolic.pm6",
-        "Algebra":   "lib/Algebra.pm6"
+        "Expression": "lib/Expression.pm6",
+        "Identifier": "lib/Identifier.pm6",
+        "Algebra":    "lib/Algebra.pm6"
     },
     "source-url":  "git://github.com/grondilu/symbolic"
 }
